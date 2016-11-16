@@ -1075,18 +1075,17 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
         col_to_split_adjustments = {}
         if len(pre_adjustments[0]):
             adjustment_values, date_indexes = pre_adjustments
-            # We need to undo all adjustments that happen before the
-            # split_asof_date here by reversing the split ratio.
-            adjustments_to_undo = [Float64Multiply(
-                0,
-                split_adjusted_asof_date_idx,
-                sid_idx,
-                sid_idx,
-                1/future_adjustment
-            ) for future_adjustment in adjustment_values]
             for column_name in requested_split_adjusted_columns:
                 col_to_split_adjustments[column_name] = {}
-                col_to_split_adjustments[column_name][0] = adjustments_to_undo
+                # We need to undo all adjustments that happen before the
+                # split_asof_date here by reversing the split ratio.
+                col_to_split_adjustments[column_name][0] = [Float64Multiply(
+                    0,
+                    split_adjusted_asof_date_idx,
+                    sid_idx,
+                    sid_idx,
+                    1 / future_adjustment
+                ) for future_adjustment in adjustment_values]
 
                 for adjustment, date_index in zip(adjustment_values,
                                                   date_indexes):
