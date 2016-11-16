@@ -285,7 +285,7 @@ class EarningsEstimatesLoader(PipelineLoader):
                                    dates,
                                    requested_qtr_data,
                                    last_per_qtr,
-                                   sid_to_idx,
+                                   sid_idx,
                                    columns,
                                    all_adjustments_for_sid,
                                    sid):
@@ -306,8 +306,8 @@ class EarningsEstimatesLoader(PipelineLoader):
             A DataFrame with a column MultiIndex of [self.estimates.columns,
             normalized_quarters, sid] that allows easily getting the timeline
             of estimates for a particular sid for a particular quarter.
-        sid_to_idx : dict[int -> int]
-            A dictionary of sid to the sid's index in the asset index.
+        sid_idx : int
+            The sid's index in the asset index.
         columns : list of BoundColumn
             The columns for which the overwrites should be computed.
         all_adjustments_for_sid : dict[int -> AdjustedArray]
@@ -344,7 +344,7 @@ class EarningsEstimatesLoader(PipelineLoader):
                     qtrs_with_estimates,
                     requested_quarter,
                     sid,
-                    sid_to_idx[sid],
+                    sid_idx,
                     columns
                 )
 
@@ -353,7 +353,7 @@ class EarningsEstimatesLoader(PipelineLoader):
                                 dates,
                                 requested_qtr_data,
                                 last_per_qtr,
-                                sid_to_idx,
+                                sid_idx,
                                 columns,
                                 col_to_all_adjustments,
                                 **kwargs):
@@ -372,8 +372,8 @@ class EarningsEstimatesLoader(PipelineLoader):
             A DataFrame with a column MultiIndex of [self.estimates.columns,
             normalized_quarters, sid] that allows easily getting the timeline
             of estimates for a particular sid for a particular quarter.
-        sid_to_idx : dict[int -> int]
-            A dictionary of sid to the sid's index in the asset index.
+        sid_idx : int
+            The sid's index in the asset index.
         columns : list of BoundColumn
             The columns for which the overwrites should be computed.
         col_to_all_adjustments : dict[int -> AdjustedArray]
@@ -391,7 +391,7 @@ class EarningsEstimatesLoader(PipelineLoader):
                                         dates,
                                         requested_qtr_data,
                                         last_per_qtr,
-                                        sid_to_idx,
+                                        sid_idx,
                                         columns,
                                         all_adjustments_for_sid,
                                         sid)
@@ -898,7 +898,7 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
                                 dates,
                                 requested_qtr_data,
                                 last_per_qtr,
-                                sid_to_idx,
+                                sid_idx,
                                 columns,
                                 col_to_all_adjustments,
                                 split_adjusted_asof_idx=None,
@@ -919,7 +919,7 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
                                         dates,
                                         requested_qtr_data,
                                         last_per_qtr,
-                                        sid_to_idx,
+                                        sid_idx,
                                         columns,
                                         all_adjustments_for_sid,
                                         sid)
@@ -942,7 +942,7 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
             requested_qtr_data,
             dates,
             sid,
-            sid_to_idx[sid],
+            sid_idx,
             sid_estimates,
             split_adjusted_asof_idx,
             pre_adjustments,
@@ -1220,7 +1220,7 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
         pre_adjustments : tuple(list(float), list(int), pd.DatetimeIndex)
             The adjustment values and indexes in `dates` for
             adjustments that happened before the split-asof-date.
-        pre_adjustments : tuple(list(float), list(int), pd.DatetimeIndex)
+        post_adjustments : tuple(list(float), list(int), pd.DatetimeIndex)
             The adjustment values, indexes in `dates`, and timestamps for
             adjustments that happened after the split-asof-date.
         """
