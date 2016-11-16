@@ -353,7 +353,7 @@ class EarningsEstimatesLoader(PipelineLoader):
                                 dates,
                                 requested_qtr_data,
                                 last_per_qtr,
-                                sid_idx,
+                                sid_to_idx,
                                 columns,
                                 col_to_all_adjustments,
                                 **kwargs):
@@ -372,8 +372,8 @@ class EarningsEstimatesLoader(PipelineLoader):
             A DataFrame with a column MultiIndex of [self.estimates.columns,
             normalized_quarters, sid] that allows easily getting the timeline
             of estimates for a particular sid for a particular quarter.
-        sid_idx : int
-            The sid's index in the asset index.
+        sid_to_idx : dict[int -> int]
+            A dictionary mapping sid to he sid's index in the asset index.
         columns : list of BoundColumn
             The columns for which the overwrites should be computed.
         col_to_all_adjustments : dict[int -> AdjustedArray]
@@ -391,7 +391,7 @@ class EarningsEstimatesLoader(PipelineLoader):
                                         dates,
                                         requested_qtr_data,
                                         last_per_qtr,
-                                        sid_idx,
+                                        sid_to_idx[sid],
                                         columns,
                                         all_adjustments_for_sid,
                                         sid)
@@ -727,6 +727,8 @@ class NextEarningsEstimatesLoader(EarningsEstimatesLoader):
                                       sid_idx,
                                       col_to_split_adjustments=None,
                                       split_adjusted_asof_idx=None):
+        # if not isinstance(sid_idx, int):
+        #     import pdb; pdb.set_trace()
         return [self.array_overwrites_dict[column.dtype](
             0,
             next_qtr_start_idx - 1,
@@ -898,7 +900,7 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
                                 dates,
                                 requested_qtr_data,
                                 last_per_qtr,
-                                sid_idx,
+                                sid_to_idx,
                                 columns,
                                 col_to_all_adjustments,
                                 split_adjusted_asof_idx=None,
@@ -919,7 +921,7 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
                                         dates,
                                         requested_qtr_data,
                                         last_per_qtr,
-                                        sid_idx,
+                                        sid_to_idx[sid],
                                         columns,
                                         all_adjustments_for_sid,
                                         sid)
@@ -942,7 +944,7 @@ class SplitAdjustedEstimatesLoader(EarningsEstimatesLoader):
             requested_qtr_data,
             dates,
             sid,
-            sid_idx,
+            sid_to_idx[sid],
             sid_estimates,
             split_adjusted_asof_idx,
             pre_adjustments,
