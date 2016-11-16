@@ -936,7 +936,7 @@ class WithEstimateWindows(WithEstimates):
 
     Tests
     -----
-    test_adjustments_with_multiple_adjusted_columns()
+    test_estimate_windows_at_quarter_boundaries()
         Tests that we overwrite values with the correct quarter's estimate at
         the correct dates when we have a factor that asks for a window of data.
     """
@@ -1842,6 +1842,9 @@ class WithSplitAdjustedMultipleEstimateColumns(WithEstimates):
         The start date of the test.
     test_end_date : pd.Timestamp
         The start date of the test.
+    split_adjusted_asof : pd.Timestamp
+        The split-adjusted-asof-date of the data used in the test, to be used
+        to create all loaders of test classes that subclass this mixin.
 
     Methods
     -------
@@ -1868,8 +1871,9 @@ class WithSplitAdjustedMultipleEstimateColumns(WithEstimates):
         we still split-adjust correctly.
     """
     END_DATE = pd.Timestamp('2015-02-10')
-    test_start_date = pd.Timestamp('2015-01-09', tz='utc')
+    test_start_date = pd.Timestamp('2015-01-06', tz='utc')
     test_end_date = pd.Timestamp('2015-01-12', tz='utc')
+    split_adjusted_asof = pd.Timestamp('2015-01-08')
 
     @classmethod
     def make_columns(cls):
@@ -1883,7 +1887,7 @@ class WithSplitAdjustedMultipleEstimateColumns(WithEstimates):
 
     @classmethod
     def make_events(cls):
-        return pd.DataFrame({
+        sid_0_events = pd.DataFrame({
             # We only want a stale KD here so that adjustments
             # will be applied.
             TS_FIELD_NAME: [pd.Timestamp('2015-01-05'),
@@ -1898,13 +1902,41 @@ class WithSplitAdjustedMultipleEstimateColumns(WithEstimates):
             SID_FIELD_NAME: 0,
         })
 
+        # This is just an extra sid to make sure that we apply adjustments
+        # correctly for multiple columns when we have multiple sids.
+        sid_1_events = pd.DataFrame({
+            # We only want a stale KD here so that adjustments
+            # will be applied.
+            TS_FIELD_NAME: [pd.Timestamp('2015-01-05'),
+                            pd.Timestamp('2015-01-05')],
+            EVENT_DATE_FIELD_NAME:
+                [pd.Timestamp('2015-01-08'),
+                 pd.Timestamp('2015-01-11')],
+            'estimate1': [1110., 1210.],
+            'estimate2': [2110., 2210.],
+            FISCAL_QUARTER_FIELD_NAME: [1, 2],
+            FISCAL_YEAR_FIELD_NAME: 2015,
+            SID_FIELD_NAME: 1,
+        })
+        return pd.concat([sid_0_events, sid_1_events])
+
     @classmethod
     def make_splits_data(cls):
-        return pd.DataFrame({
+        sid_0_splits = pd.DataFrame({
             SID_FIELD_NAME: 0,
-            'ratio': 3.,
-            'effective_date': pd.Timestamp('2015-01-09'),
-        }, index=[0])
+            'ratio': (.3, 3.),
+            'effective_date': (pd.Timestamp('2015-01-07'),
+                               pd.Timestamp('2015-01-09')),
+        })
+
+        sid_1_splits = pd.DataFrame({
+            SID_FIELD_NAME: 1,
+            'ratio': (.4, 4.),
+            'effective_date': (pd.Timestamp('2015-01-07'),
+                               pd.Timestamp('2015-01-09')),
+        })
+
+        return pd.concat([sid_0_splits, sid_1_splits])
 
     @classmethod
     def make_expected_timelines_1q_out(cls):
@@ -1995,30 +2027,60 @@ class PreviousWithSplitAdjustedMultipleEstimateColumns(
             columns,
             split_adjustments_loader=cls.adjustment_reader,
             split_adjusted_column_names=['estimate1', 'estimate2'],
-            split_adjusted_asof=pd.Timestamp('2015-01-05'),
+            split_adjusted_asof=cls.split_adjusted_asof,
         )
 
     @classmethod
     def make_expected_timelines_1q_out(cls):
         return {
+            pd.Timestamp('2015-01-06', tz='utc'): {
+                'estimate1': np.array([[np.NaN, np.NaN]] * 3),
+                'estimate2': np.array([[np.NaN, np.NaN]] * 3)
+            },
+            pd.Timestamp('2015-01-07', tz='utc'): {
+                'estimate1': np.array([[np.NaN, np.NaN]] * 3),
+                'estimate2': np.array([[np.NaN, np.NaN]] * 3)
+            },
+            pd.Timestamp('2015-01-08', tz='utc'): {
+                'estimate1': np.array([[np.NaN, np.NaN]] * 2 +
+                                      [[np.NaN, 1110.]]),
+                'estimate2': np.array([[np.NaN, np.NaN]] * 2 +
+                                      [[np.NaN, 2110.]])
+            },
             pd.Timestamp('2015-01-09', tz='utc'): {
-                'estimate1': np.array([[np.NaN]] * 2 + [[3300.]]),
-                'estimate2': np.array([[np.NaN]] * 2 + [[6300.]])
+                'estimate1': np.array([[np.NaN, np.NaN]] +
+                                      [[np.NaN, 1110. * 4]] +
+                                      [[1100 * 3., 1110. * 4]]),
+                'estimate2': np.array([[np.NaN, np.NaN]] +
+                                      [[np.NaN, 2110. * 4]] +
+                                      [[2100 * 3., 2110. * 4]])
             },
             pd.Timestamp('2015-01-12', tz='utc'): {
-                'estimate1': np.array([[np.NaN]] * 2 + [[3600.]]),
-                'estimate2': np.array([[np.NaN]] * 2 + [[6600.]])
+                'estimate1': np.array([[np.NaN, np.NaN]] * 2 +
+                                      [[1200 * 3., 1210. * 4]]),
+                'estimate2': np.array([[np.NaN, np.NaN]] * 2 +
+                                      [[2200 * 3., 2210. * 4]])
             }
         }
 
     @classmethod
     def make_expected_timelines_2q_out(cls):
         return {
+            pd.Timestamp('2015-01-06', tz='utc'): {
+                'estimate2': np.array([[np.NaN, np.NaN]] * 3)
+            },
+            pd.Timestamp('2015-01-07', tz='utc'): {
+                'estimate2': np.array([[np.NaN, np.NaN]] * 3)
+            },
+            pd.Timestamp('2015-01-08', tz='utc'): {
+                'estimate2': np.array([[np.NaN, np.NaN]] * 3)
+            },
             pd.Timestamp('2015-01-09', tz='utc'): {
-                'estimate2': np.array([[np.NaN]] * 3)
+                'estimate2': np.array([[np.NaN, np.NaN]] * 3)
             },
             pd.Timestamp('2015-01-12', tz='utc'): {
-                'estimate2': np.array([[np.NaN]] * 2 + [[6300.]])
+                'estimate2': np.array([[np.NaN, np.NaN]] * 2 +
+                                      [[2100 * 3., 2110. * 4]])
             }
         }
 
@@ -2033,7 +2095,7 @@ class BlazePreviousWithMultipleEstimateColumns(
             columns,
             split_adjustments_loader=cls.adjustment_reader,
             split_adjusted_column_names=['estimate1', 'estimate2'],
-            split_adjusted_asof=pd.Timestamp('2015-01-05'),
+            split_adjusted_asof=cls.split_adjusted_asof,
         )
 
 
@@ -2047,30 +2109,54 @@ class NextWithSplitAdjustedMultipleEstimateColumns(
             columns,
             split_adjustments_loader=cls.adjustment_reader,
             split_adjusted_column_names=['estimate1', 'estimate2'],
-            split_adjusted_asof=pd.Timestamp('2015-01-05'),
+            split_adjusted_asof=cls.split_adjusted_asof,
         )
 
     @classmethod
     def make_expected_timelines_1q_out(cls):
         return {
+            pd.Timestamp('2015-01-06', tz='utc'): {
+                'estimate1': np.array([[np.NaN, np.NaN]] +
+                                      [[1100. * 1/.3, 1110. * 1/.4]] * 2),
+                'estimate2': np.array([[np.NaN, np.NaN]] +
+                                      [[2100. * 1/.3, 2110. * 1/.4]] * 2),
+            },
+            pd.Timestamp('2015-01-07', tz='utc'): {
+                'estimate1': np.array([[1100., 1110.]] * 3),
+                'estimate2': np.array([[2100., 2110.]] * 3)
+            },
+            pd.Timestamp('2015-01-08', tz='utc'): {
+                'estimate1': np.array([[1100., 1110.]] * 3),
+                'estimate2': np.array([[2100., 2110.]] * 3)
+            },
             pd.Timestamp('2015-01-09', tz='utc'): {
-                'estimate1': np.array([[3300.]] * 3),
-                'estimate2': np.array([[6300.]] * 3)
+                'estimate1': np.array([[1100 * 3., 1210. * 4]] * 3),
+                'estimate2': np.array([[2100 * 3., 2210. * 4]] * 3)
             },
             pd.Timestamp('2015-01-12', tz='utc'): {
-                'estimate1': np.array([[3600.]] * 3),
-                'estimate2': np.array([[6600.]] * 3)
+                'estimate1': np.array([[1200 * 3., np.NaN]] * 3),
+                'estimate2': np.array([[2200 * 3., np.NaN]] * 3)
             }
         }
 
     @classmethod
     def make_expected_timelines_2q_out(cls):
         return {
+            pd.Timestamp('2015-01-06', tz='utc'): {
+                'estimate2': np.array([[np.NaN, np.NaN]] +
+                                      [[2200 * 1/.3, 2210. * 1/.4]] * 2)
+            },
+            pd.Timestamp('2015-01-07', tz='utc'): {
+                'estimate2': np.array([[2200., 2210.]] * 3)
+            },
+            pd.Timestamp('2015-01-08', tz='utc'): {
+                'estimate2': np.array([[2200, 2210.]] * 3)
+            },
             pd.Timestamp('2015-01-09', tz='utc'): {
-                'estimate2': np.array([[6600.]] * 3)
+                'estimate2': np.array([[2200 * 3., np.NaN]] * 3)
             },
             pd.Timestamp('2015-01-12', tz='utc'): {
-                'estimate2': np.array([[np.NaN]] * 3)
+                'estimate2': np.array([[np.NaN, np.NaN]] * 3)
             }
         }
 
@@ -2085,7 +2171,7 @@ class BlazeNextWithMultipleEstimateColumns(
             columns,
             split_adjustments_loader=cls.adjustment_reader,
             split_adjusted_column_names=['estimate1', 'estimate2'],
-            split_adjusted_asof=pd.Timestamp('2015-01-05'),
+            split_adjusted_asof=cls.split_adjusted_asof,
         )
 
 
